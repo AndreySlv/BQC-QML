@@ -2,7 +2,7 @@ import random
 import math
 from quantumnet.components import Host
 from quantumnet.objects import Qubit, Logger
-
+from quantumnet.components.simulation_qml import QuantumMLSimulator  
 from qiskit_ibm_runtime.fake_provider import FakeBrisbane
 from qiskit_ibm_runtime import Session,Sampler
 from qiskit import QuantumCircuit, transpile
@@ -254,6 +254,14 @@ class ApplicationLayer:
         alice.memory.clear()
         self.logger.log(f"Cliente enviou {len(qubits)} qubits para o Servidor.")
         self.logger.log(f"Servidor tem {len(bob.memory)} qubits na memória após a recepção.")
+
+        # === AQUI ENTRA O VQC ===
+        self.logger.log("Iniciando treinamento do VQC através do simulador quântico.")
+        qml_simulator = QuantumMLSimulator()
+        vqc_resultados = qml_simulator.treinar_vqc(max_iter=50)
+
+        self.logger.log(f"Resultados do VQC: Treino={vqc_resultados['accuracy_train']}, Teste={vqc_resultados['accuracy_test']}, Tempo={vqc_resultados['duration']}s")
+        # === FIM DO VQC ===
 
         # Servidor aplica operações
         tempo_de_operacao = circuit_depth
