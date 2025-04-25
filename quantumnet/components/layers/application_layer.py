@@ -271,32 +271,6 @@ class ApplicationLayer:
         for qubit in qubits:
             self.logger.log(f"Qubit {qubit.qubit_id} após operações de Servidor - Estado: {qubit._qubit_state}, Fase: {qubit._phase}")
         
-        # 9) Monta QuantumCircuit e roda no FakeBrisbane
-        qc = QuantumCircuit(num_qubits, num_qubits)
-        for idx, op in enumerate(operations_classical_message):
-            if op == 'X':
-                qc.x(idx)
-            elif op == 'Y':
-                qc.y(idx)
-            elif op == 'Z':
-                qc.z(idx)
-        qc.measure(range(num_qubits), range(num_qubits))
-
-        # **Correção**: instanciar Sampler apontando para o FakeBrisbane
-        backend = FakeBrisbane()
-        sampler = Sampler(backend=backend)
-        qc_t = transpile(qc, backend=backend)
-        job = sampler.run([qc_t])
-        result = job.result()
-
-        # 10) Atualiza estados segundo medida
-        counts = result.quasi_dists[0]
-        bitstring = max(counts, key=counts.get)[::-1]  # inverte para mapear qubit 0→bit0
-        for i, bit in enumerate(bitstring):
-            qubits[i]._qubit_state = int(bit)
-            self.logger.log(f"Qubit {qubits[i].qubit_id} medido → estado {bit}")
-
-            
         # Limpa a memória do Cliente antes de devolver os qubits
         self.logger.log(f"Limpando a memória do cliente antes de receber os qubits devolvidos.")
         alice.memory.clear()
@@ -331,8 +305,6 @@ class ApplicationLayer:
             return None
 
         return qubits
-
-
 
     def generate_random_operation(self):
         """
