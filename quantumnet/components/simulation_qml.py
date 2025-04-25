@@ -2,12 +2,13 @@ import time
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
+from qiskit_ibm_runtime import Sampler,Session
 from qiskit_ibm_runtime.fake_provider import FakeBrisbane
-from qiskit_ibm_runtime import Session,Sampler
 from qiskit.circuit.library import EfficientSU2, ZZFeatureMap
 from qiskit_machine_learning.algorithms.classifiers import VQC
 from qiskit_machine_learning.optimizers import COBYLA
 from qiskit_machine_learning.utils import algorithm_globals
+from qiskit import transpile
 
 class QuantumMLSimulator:
     def __init__(self, backend=None, log_func=print):
@@ -29,12 +30,15 @@ class QuantumMLSimulator:
     def treinar_vqc(self, max_iter=100):
         with Session(backend=self.backend) as session:
             sampler = Sampler()
+            
+            transpiled_feature_map = transpile(self.feature_map, backend=self.backend)
+            transpiled_ansatz = transpile(self.ansatz, backend=self.backend)
 
             optimizer = COBYLA(maxiter=max_iter)
             vqc = VQC(
                 sampler=sampler,
-                feature_map=self.feature_map,
-                ansatz=self.ansatz,
+                feature_map=transpiled_feature_map,
+                ansatz=transpiled_ansatz,
                 optimizer=optimizer
             )
 
