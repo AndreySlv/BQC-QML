@@ -62,12 +62,13 @@ class ApplicationLayer:
         slice_path = kwargs.get('slice_path', None)  
         scenario = kwargs.get('scenario',None)
         circuit_depth = kwargs.get('circuit_depth', None) 
+        modelo_qml = kwargs.get("modelo_qml",None)
 
 
         if app_name == "QKD_E91":
             return self.qkd_e91_protocol(alice_id, bob_id, num_qubits)
         elif app_name == "AC_BQC":
-            return self.run_andrews_childs_protocol(alice_id, bob_id, num_qubits, slice_path=slice_path, scenario=scenario,circuit_depth=circuit_depth)
+            return self.run_andrews_childs_protocol(alice_id, bob_id, num_qubits, slice_path=slice_path, scenario=scenario,circuit_depth=circuit_depth,modelo_qml=modelo_qml)
         elif app_name == "BFK_BQC":
             return self.bfk_protocol(alice_id, bob_id, num_qubits, num_rounds, slice_path=slice_path, scenario=scenario,circuit_depth=circuit_depth)
         else:
@@ -184,7 +185,7 @@ class ApplicationLayer:
     
     #PROTOCOLO ANDREWS CHILDS - BQC
 
-    def run_andrews_childs_protocol(self, alice_id, bob_id, num_qubits, circuit_depth=None, slice_path=None, scenario=1):
+    def run_andrews_childs_protocol(self, alice_id, bob_id, num_qubits, circuit_depth=None, slice_path=None, scenario=1, modelo_qml=None):
         """
         Executa o protocolo Andrew Childs, onde Alice prepara qubits, envia para Bob, e Bob realiza operações.
 
@@ -256,10 +257,15 @@ class ApplicationLayer:
         self.logger.log(f"Servidor tem {len(bob.memory)} qubits na memória após a recepção.")
 
         # === Inicia o VQC enquanto Bob faz operações ===
-        self.logger.log("Iniciando treinamento do VQC (paralelo ao processamento de Bob).")
+        self.logger.log(f"Iniciando treinamento do {modelo_qml.upper()}.")
         qml_simulator = QuantumMLSimulator()
-        qml_simulator.iniciar_treinamento_vqc(max_iter=50)
-        num_qubits_vqc = qml_simulator.num_qubits  
+
+        if modelo_qml == 'vqc':
+            qml_simulator.iniciar_treinamento_vqc(max_iter=50)
+            resultados = qml_simulator.pegar_resultados_vqc()
+        elif modelo_qml == 'qcnn':
+            qml_simulator.iniciar_qcnn(num_images=50, max_iter=50)
+            resultados = None  
 
         # Servidor aplica operações
         tempo_de_operacao = circuit_depth
@@ -310,12 +316,19 @@ class ApplicationLayer:
             self.logger.log(f"Erro: Cliente tem {len(alice.memory)} qubits, mas deveria ter {num_qubits} qubits.")
             return None
 
-        # === Resultados finais do VQC ===
-        vqc_resultados = qml_simulator.pegar_resultados_vqc()
-        if vqc_resultados:
-            self.logger.log(f"Resultados do VQC: Treino={vqc_resultados['accuracy_train']}, Teste={vqc_resultados['accuracy_test']}, Tempo={vqc_resultados['duration']}s")
-        else:
-            self.logger.log("VQC não retornou resultados válidos.")
+        if modelo_qml == "VQC":
+            resultados = qml_simulator.pegar_resultados_vqc()
+            if resultados:
+                self.logger.log(f"Resultados do VQC: Treino={round(resultados['accuracy_train'] * 100, 2)}%, Teste={round(resultados['accuracy_test'] * 100, 2)}%, Tempo={resultados['duration']}s")
+            else:
+                self.logger.log("VQC não retornou resultados válidos.")
+
+        elif modelo_qml == "QCNN":
+            resultados = qml_simulator.pegar_resultados_qcnn()
+            if resultados:
+                self.logger.log(f"Resultados do QCNN: Treino={round(resultados['accuracy_train'] * 100, 2)}%, Teste={round(resultados['accuracy_test'] * 100, 2)}%")
+            else:
+                self.logger.log("QCNN não retornou resultados válidos.")
 
         return qubits
     
