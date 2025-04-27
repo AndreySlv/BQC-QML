@@ -255,13 +255,11 @@ class ApplicationLayer:
         self.logger.log(f"Cliente enviou {len(qubits)} qubits para o Servidor.")
         self.logger.log(f"Servidor tem {len(bob.memory)} qubits na memória após a recepção.")
 
-        # === AQUI ENTRA O VQC ===
-        self.logger.log("Iniciando treinamento do VQC através do simulador quântico.")
+        # === Inicia o VQC enquanto Bob faz operações ===
+        self.logger.log("Iniciando treinamento do VQC (paralelo ao processamento de Bob).")
         qml_simulator = QuantumMLSimulator()
-        vqc_resultados = qml_simulator.treinar_vqc(max_iter=50)
-
-        self.logger.log(f"Resultados do VQC: Treino={vqc_resultados['accuracy_train']}, Teste={vqc_resultados['accuracy_test']}, Tempo={vqc_resultados['duration']}s")
-        # === FIM DO VQC ===
+        qml_simulator.iniciar_treinamento_vqc(max_iter=50)
+        num_qubits_vqc = qml_simulator.num_qubits  
 
         # Servidor aplica operações
         tempo_de_operacao = circuit_depth
@@ -312,8 +310,15 @@ class ApplicationLayer:
             self.logger.log(f"Erro: Cliente tem {len(alice.memory)} qubits, mas deveria ter {num_qubits} qubits.")
             return None
 
-        return qubits
+        # === Resultados finais do VQC ===
+        vqc_resultados = qml_simulator.pegar_resultados_vqc()
+        if vqc_resultados:
+            self.logger.log(f"Resultados do VQC: Treino={vqc_resultados['accuracy_train']}, Teste={vqc_resultados['accuracy_test']}, Tempo={vqc_resultados['duration']}s")
+        else:
+            self.logger.log("VQC não retornou resultados válidos.")
 
+        return qubits
+    
     def generate_random_operation(self):
         """
         Gera uma operação quântica aleatória (X, Y, Z).
