@@ -64,7 +64,6 @@ class ApplicationLayer:
         circuit_depth = kwargs.get('circuit_depth', None) 
         modelo_qml = kwargs.get("modelo_qml",None)
 
-
         if app_name == "QKD_E91":
             return self.qkd_e91_protocol(alice_id, bob_id, num_qubits)
         elif app_name == "AC_BQC":
