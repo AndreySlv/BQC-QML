@@ -2,7 +2,7 @@ import random
 import math
 from quantumnet.components import Host
 from quantumnet.objects import Qubit, Logger
-from quantumnet.components.simulation_qml import QuantumMLSimulator  
+from quantumnet.components.simulation_qml import QuantumMLSimulator 
 from qiskit_ibm_runtime.fake_provider import FakeBrisbane
 from qiskit_ibm_runtime import Session,Sampler
 from qiskit import QuantumCircuit, transpile
@@ -261,10 +261,10 @@ class ApplicationLayer:
         qml_simulator = QuantumMLSimulator()
 
         if modelo_qml == 'vqc':
-            qml_simulator.iniciar_treinamento_vqc(max_iter=50)
-            resultados = qml_simulator.pegar_resultados_vqc()
+            qml_simulator.iniciar_treinamento_vqc(max_iter=100)
+            resultados = None
         elif modelo_qml == 'qcnn':
-            qml_simulator.iniciar_qcnn(num_images=50, max_iter=50)
+            qml_simulator.iniciar_qcnn(num_images=50, max_iter=100)
             resultados = None  
 
         # Servidor aplica operações

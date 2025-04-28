@@ -16,6 +16,8 @@ from qiskit_machine_learning.algorithms.classifiers import VQC, NeuralNetworkCla
 from qiskit_machine_learning.neural_networks import SamplerQNN
 from qiskit_machine_learning.optimizers import COBYLA
 from qiskit_machine_learning.utils import algorithm_globals
+import pennylane as qml
+from IPython.display import Image, display
 
 class QuantumMLSimulator:
     def __init__(self, backend=None, log_func=print):
@@ -27,7 +29,7 @@ class QuantumMLSimulator:
         X = MinMaxScaler().fit_transform(iris.data)
         y = iris.target
         algorithm_globals.random_seed = 128
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, train_size=0.8, random_state=128)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, train_size=0.75, random_state=128)
 
         self.num_qubits = X.shape[1]
         self.feature_map = ZZFeatureMap(feature_dimension=self.num_qubits, reps=1)
@@ -64,13 +66,20 @@ class QuantumMLSimulator:
             duration = round(time.time() - start_time)
             self.log(f"Treino finalizado em {duration} segundos")
 
+            acc_train = vqc.score(self.X_train, self.y_train)
+            acc_test = vqc.score(self.X_test, self.y_test)
+
             self.resultados_vqc = {
-                'accuracy_train': vqc.score(self.X_train, self.y_train),
-                'accuracy_test': vqc.score(self.X_test, self.y_test),
+                'accuracy_train': acc_train,
+                'accuracy_test': acc_test,
                 'duration': duration
             }
 
-        from IPython.display import Image, display
+            # Logs detalhados
+            self.log(f"Acurácia no treino VQC: {round(acc_train * 100, 2)}%")
+            self.log(f"Acurácia no teste VQC: {round(acc_test * 100, 2)}%")
+            self.log(f"Duração do treino VQC: {duration} segundos")
+
         display(Image(filename="objective_function_plot.png"))
 
     
@@ -226,7 +235,6 @@ class QuantumMLSimulator:
         self.log(f"Acurácia no teste QCNN: {round(acc_test * 100, 2)}%")
         self.log(f"Acurácia no treino QCNN: {round(acc_train * 100, 2)}%")
 
-        from IPython.display import Image, display
         display(Image(filename="qcnn_objective_function_plot.png"))
 
 
@@ -235,3 +243,113 @@ class QuantumMLSimulator:
             self.log("Erro: QCNN ainda não foi treinado!")
             return None
         return self.resultados_qcnn
+
+
+class QuantumDatasetLoader:
+    def __init__(self, dataset_name="iris", num_images=50, test_size=0.3, random_state=128):
+        self.dataset_name = dataset_name
+        self.num_images = num_images
+        self.test_size = test_size
+        self.random_state = random_state
+
+        self.X_train = None
+        self.X_test = None
+        self.y_train = None
+        self.y_test = None
+        self.num_qubits = None
+
+    def carregar(self):
+        if self.dataset_name == "iris":
+            return self._carregar_iris()
+        elif self.dataset_name == "custom_images":
+            return self._carregar_custom_images()
+        elif self.dataset_name == "mnisq": 
+            return self._carregar_mnisq()
+        else:
+            raise ValueError(f"Dataset '{self.dataset_name}' não é suportado.")
+
+
+    def _carregar_iris(self):
+        from sklearn.datasets import load_iris
+        from sklearn.preprocessing import MinMaxScaler
+        from sklearn.model_selection import train_test_split
+        from qiskit_machine_learning.utils import algorithm_globals
+
+        iris = load_iris()
+        X = MinMaxScaler().fit_transform(iris.data)
+        y = iris.target
+        algorithm_globals.random_seed = self.random_state
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            X, y, train_size=0.8, random_state=self.random_state
+        )
+        self.num_qubits = X.shape[1]
+        return self
+
+    def _carregar_custom_images(self):
+        images, labels = self._generate_custom_dataset()
+        from sklearn.model_selection import train_test_split
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            images, labels, test_size=self.test_size, random_state=246
+        )
+        self.num_qubits = 4
+        return self
+
+    def _carregar_mnisq(self):
+        ds_list = qml.data.load("mnisq")  # Retorna uma lista de circuitos
+
+        # Seleciona os primeiros circuitos da lista
+        self.X_train = ds_list[:self.num_images]
+
+        # Labels fictícios, por enquanto (0, 1, 2, ...), ajuste conforme necessário
+        self.y_train = list(range(len(self.X_train)))
+
+        # MNIST geralmente usa até 9 qubits
+        if self.X_train:
+            # Cria um QNode temporário só para descobrir quantos wires/qubits
+            dev = qml.device("default.qubit")
+
+            @qml.qnode(dev)
+            def temp_circuit():
+                for op in self.X_train[0]:
+                    qml.apply(op)
+                return qml.state()
+
+            # Detecta o número de qubits do circuito carregado
+            self.num_qubits = dev.num_wires
+        else:
+            self.num_qubits = 9  # Default caso vazio
+
+        return self
+
+
+    def _generate_custom_dataset(self):
+        import numpy as np
+        from qiskit_machine_learning.utils import algorithm_globals
+
+        images = []
+        labels = []
+        hor_array = np.zeros((2, 4))
+        ver_array = np.zeros((2, 4))
+
+        hor_array[0][1] = hor_array[0][2] = np.pi / 2
+        hor_array[1][0] = hor_array[1][1] = np.pi / 2
+
+        ver_array[0][0] = ver_array[0][2] = np.pi / 2
+        ver_array[1][1] = ver_array[1][3] = np.pi / 2
+
+        for n in range(self.num_images):
+            rng = algorithm_globals.random.integers(0, 2)
+            if rng == 0:
+                labels.append(0)
+                random_image = algorithm_globals.random.integers(0, 2)
+                images.append(np.array(hor_array[random_image % 2]))
+            else:
+                labels.append(1)
+                random_image = algorithm_globals.random.integers(0, 2)
+                images.append(np.array(ver_array[random_image % 2]))
+
+            for i in range(4):
+                if images[-1][i] == 0:
+                    images[-1][i] = algorithm_globals.random.uniform(0, np.pi / 4)
+
+        return images, labels
