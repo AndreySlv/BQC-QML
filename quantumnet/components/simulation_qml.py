@@ -299,8 +299,6 @@ class QuantumDatasetLoader:
 
         # Seleciona os primeiros circuitos da lista
         self.X_train = ds_list[:self.num_images]
-
-        # Labels fictícios, por enquanto (0, 1, 2, ...), ajuste conforme necessário
         self.y_train = list(range(len(self.X_train)))
 
         # MNIST geralmente usa até 9 qubits
